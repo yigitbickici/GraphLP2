@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elektrik Şebekesi Optimizasyonu</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="sketch.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        #canvasContainer {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        #canvasContainer canvas {
+            width: 100% !important;
+            height: auto !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4 max-w-7xl">
+        <h1 class="text-3xl font-bold mb-4">Elektrik Şebekesi Optimizasyonu</h1>
+        
+        <!-- Kontrol Paneli -->
+        <div class="bg-white p-4 rounded-lg shadow-md mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Mod Seçimi -->
+                <div class="space-y-2">
+                    <h2 class="text-lg font-semibold">Çizim Modu</h2>
+                    <div class="space-x-2">
+                        <button id="addNodeBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700">Nokta Ekle</button>
+                        <button id="moveNodeBtn" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-700">Nokta Taşı</button>
+                    </div>
+                </div>
+
+                <!-- Algoritma Seçimi -->
+                <div class="space-y-2">
+                    <h2 class="text-lg font-semibold">Algoritma</h2>
+                    <select id="algorithmSelect" class="w-full p-2 border rounded">
+                        <option value="kruskal">Kruskal Algoritması</option>
+                        <option value="prim">Prim Algoritması</option>
+                    </select>
+                </div>
+
+                <!-- Çalışma Modu -->
+                <div class="space-y-2">
+                    <h2 class="text-lg font-semibold">Çalışma Modu</h2>
+                    <select id="runMode" class="w-full p-2 border rounded">
+                        <option value="instant">Anlık Çözüm</option>
+                        <option value="step">Adım Adım</option>
+                        <option value="compare">Karşılaştırmalı</option>
+                    </select>
+                </div>
+
+                <!-- Kontrol Butonları -->
+                <div class="space-y-2">
+                    <h2 class="text-lg font-semibold">Kontroller</h2>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="runBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700">Çalıştır</button>
+                        <button id="nextStepBtn" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-700 hidden">Sonraki Adım</button>
+                        <button id="resetBtn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-700">Sıfırla</button>
+                        <button id="randomBtn" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-700">Rastgele Graf</button>
+                        <button id="clearBtn" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-700">Temizle</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- İstatistikler -->
+        <div class="bg-white p-4 rounded-lg shadow-md mb-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                    <h3 class="font-semibold">Nokta Sayısı:</h3>
+                    <span id="nodeCount">0</span>
+                </div>
+                <div>
+                    <h3 class="font-semibold">Toplam Maliyet:</h3>
+                    <span id="totalCost">0</span>
+                </div>
+                <div>
+                    <h3 class="font-semibold">Mevcut Mod:</h3>
+                    <span id="currentMode">Anlık Çözüm</span>
+                </div>
+                <div>
+                    <h3 class="font-semibold">İlerleme:</h3>
+                    <span id="progress">0/0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div id="canvasContainer" class="bg-white p-4 rounded-lg shadow-md"></div>
+    </div>
+</body>
+</html> 
