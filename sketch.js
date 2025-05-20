@@ -1,23 +1,19 @@
-// Genel değişkenler
+// General variables
 let nodes = [];
 let edges = [];
 let mstEdges = [];
-let currentMode = 'add'; // 'add' veya 'move'
+let currentMode = 'add'; // 'add' or 'move'
 let selectedNode = null;
 let canvas;
-let runMode = 'instant'; // 'instant', 'step', 'compare'
+let runMode = 'instant'; // 'instant' or 'step'
 let currentStep = 0;
 let algorithmSteps = [];
 
-// Algoritma değişkenleri
+// Algorithm variables
 let animationSpeed = 500; // ms
 let isAnimating = false;
-let compareMode = {
-    kruskal: { edges: [], currentStep: 0 },
-    prim: { edges: [], currentStep: 0 }
-};
 
-// Renk paleti
+// Color palette
 const colors = {
     node: {
         fill: 'rgb(52, 152, 219)',
@@ -41,38 +37,125 @@ const colors = {
     ]
 };
 
-// Node sınıfı
+// Node class
 class Node {
-    constructor(x, y) {
+    constructor(x, y, type = 'distribution_box') {
         this.x = constrain(x, 10, width - 10);
         this.y = constrain(y, 10, height - 10);
         this.id = nodes.length;
+        this.type = type;
+        this.capacity = type === 'transformer' ? 1000 : type === 'distribution_box' ? 100 : 10; // kWh capacity
+        this.load = 0;
+        this.voltage = type === 'transformer' ? 1000 : type === 'distribution_box' ? 400 : 220; // voltage level
     }
 
     draw(highlight = false) {
         push();
-        fill(colors.node.fill);
-        stroke(highlight ? colors.edge.highlight : colors.node.stroke);
-        strokeWeight(highlight ? 3 : 2);
-        ellipse(this.x, this.y, 20, 20);
-        fill(colors.node.text);
+        
+        // Different visuals for different node types
+        let size = 20;
+        if (this.type === 'transformer') {
+            // Draw transformer (square)
+            size = 30;
+            fill('rgb(231, 76, 60)');
+            stroke(highlight ? colors.edge.highlight : colors.node.stroke);
+            strokeWeight(highlight ? 3 : 2);
+            rectMode(CENTER);
+            rect(this.x, this.y, size, size);
+            
+            // Draw transformer symbol
+            fill('white');
+            textSize(16);
+            textAlign(CENTER, CENTER);
+            text('⚡', this.x, this.y);
+        } else if (this.type === 'distribution_box') {
+            // Draw distribution box (hexagon)
+            size = 25;
+            fill('rgb(52, 152, 219)');
+            stroke(highlight ? colors.edge.highlight : colors.node.stroke);
+            strokeWeight(highlight ? 3 : 2);
+            
+            // Draw hexagon
+            beginShape();
+            for (let i = 0; i < 6; i++) {
+                let angle = TWO_PI / 6 * i - TWO_PI / 4;
+                let px = this.x + cos(angle) * size/2;
+                let py = this.y + sin(angle) * size/2;
+                vertex(px, py);
+            }
+            endShape(CLOSE);
+        } else {
+            // Draw house (triangle)
+            size = 20;
+            fill('rgb(46, 204, 113)');
+            stroke(highlight ? colors.edge.highlight : colors.node.stroke);
+            strokeWeight(highlight ? 3 : 2);
+            
+            // Draw house shape
+            triangle(
+                this.x, this.y - size/2,
+                this.x - size/2, this.y + size/2,
+                this.x + size/2, this.y + size/2
+            );
+        }
+        
+        // Draw ID
+        fill('white');
         noStroke();
+        textSize(10);
         textAlign(CENTER, CENTER);
-        text(this.id, this.x, this.y);
+        text(this.id, this.x, this.y + (this.type === 'house' ? 0 : 0));
+        
+        // Show capacity/load for transformers and distribution boxes
+        if (this.type !== 'house') {
+            textSize(8);
+            text(`${this.load}/${this.capacity}kW`, this.x, this.y + size/2 + 10);
+            text(`${this.voltage}V`, this.x, this.y + size/2 + 20);
+        }
+        
         pop();
     }
 
     isInside(px, py) {
-        return dist(px, py, this.x, this.y) < 10;
+        let size = this.type === 'transformer' ? 30 : this.type === 'distribution_box' ? 25 : 20;
+        return dist(px, py, this.x, this.y) < size/2;
     }
 }
 
-// Edge sınıfı
+// Edge class
 class Edge {
     constructor(node1, node2) {
         this.node1 = node1;
         this.node2 = node2;
-        this.weight = dist(node1.x, node1.y, node2.x, node2.y);
+        this.distance = dist(node1.x, node1.y, node2.x, node2.y);
+        this.cableType = 'copper'; // 'copper' or 'aluminum'
+        this.cableCosts = {
+            'copper': 100, // TL/m
+            'aluminum': 60  // TL/m
+        };
+        this.resistance = this.calculateResistance();
+        this.powerLoss = 0; // Will be calculated based on current flow
+        this.weight = this.calculateTotalCost();
+    }
+
+    calculateResistance() {
+        // ρ (resistivity) * L (length) / A (cross-sectional area)
+        const resistivity = this.cableType === 'copper' ? 1.68e-8 : 2.82e-8; // ohm-meters
+        const area = 0.0001; // m² (assumed constant for simplicity)
+        return (resistivity * this.distance) / area;
+    }
+
+    calculateTotalCost() {
+        // Base cost based on cable type and distance
+        const baseCost = this.distance * this.cableCosts[this.cableType];
+        
+        // Additional cost based on power loss
+        const powerLossCost = this.powerLoss * 50; // 50 TL per unit of power loss
+        
+        // Installation complexity cost (example: longer distances are exponentially more complex)
+        const installationCost = Math.pow(this.distance / 100, 1.5) * 1000;
+        
+        return baseCost + powerLossCost + installationCost;
     }
 
     draw(color = 'gray', showWeight = true) {
@@ -87,13 +170,25 @@ class Edge {
             fill(0);
             noStroke();
             textAlign(CENTER, CENTER);
-            text(Math.round(this.weight), midX, midY);
+            textSize(10);
+            text(`${Math.round(this.weight)} TL\n${Math.round(this.distance)}m`, midX, midY);
+            
+            // Show power loss if significant
+            if (this.powerLoss > 0) {
+                text(`Loss: ${this.powerLoss.toFixed(2)}W`, midX, midY + 15);
+            }
         }
         pop();
     }
+
+    updatePowerLoss(current) {
+        // P = I²R (Power loss calculation)
+        this.powerLoss = current * current * this.resistance;
+        this.weight = this.calculateTotalCost(); // Recalculate total cost
+    }
 }
 
-// Union-Find veri yapısı
+// Union-Find data structure
 class UnionFind {
     constructor(size) {
         this.parent = Array.from({length: size}, (_, i) => i);
@@ -124,9 +219,9 @@ class UnionFind {
     }
 }
 
-// Kruskal Algoritması
+// Kruskal Algorithm
 function kruskalMST() {
-    console.log("Kruskal başlatılıyor...");
+    console.log("Starting Kruskal's algorithm...");
     mstEdges = [];
     let sortedEdges = [...edges].sort((a, b) => a.weight - b.weight);
     let uf = new UnionFind(nodes.length);
@@ -134,7 +229,7 @@ function kruskalMST() {
 
     for (let edge of sortedEdges) {
         if (uf.union(edge.node1.id, edge.node2.id)) {
-            console.log(`Kenar ekleniyor: ${edge.node1.id}-${edge.node2.id}`);
+            console.log(`Adding edge: ${edge.node1.id}-${edge.node2.id}`);
             mstEdges.push(edge);
             totalCost += edge.weight;
         }
@@ -148,9 +243,9 @@ function kruskalMST() {
     return mstEdges;
 }
 
-// Prim Algoritması
+// Prim Algorithm
 function primMST() {
-    console.log("Prim başlatılıyor...");
+    console.log("Starting Prim's algorithm...");
     if (nodes.length === 0) return [];
     
     mstEdges = [];
@@ -174,7 +269,7 @@ function primMST() {
         }
 
         if (minEdge) {
-            console.log(`Kenar ekleniyor: ${minEdge.node1.id}-${minEdge.node2.id}`);
+            console.log(`Adding edge: ${minEdge.node1.id}-${minEdge.node2.id}`);
             mstEdges.push(minEdge);
             totalCost += minEdge.weight;
             visited.add(visited.has(minEdge.node1.id) ? minEdge.node2.id : minEdge.node1.id);
@@ -189,7 +284,7 @@ function primMST() {
     return mstEdges;
 }
 
-// Öncelik Kuyruğu (Prim algoritması için)
+// Priority Queue (for Prim algorithm)
 class PriorityQueue {
     constructor() {
         this.values = [];
@@ -213,7 +308,7 @@ class PriorityQueue {
     }
 }
 
-// Rastgele graf oluştur
+// Random graph generation
 function createRandomGraph() {
     clearGraph();
     const numNodes = 10;
@@ -226,7 +321,7 @@ function createRandomGraph() {
     }
 }
 
-// Kenarları güncelle
+// Update edges
 function updateEdges() {
     edges = [];
     for (let i = 0; i < nodes.length; i++) {
@@ -236,11 +331,11 @@ function updateEdges() {
     }
 }
 
-// Grafı çalıştır
+// Run graph
 function runGraph() {
-    console.log("runGraph çağrıldı");
+    console.log("runGraph called");
     if (nodes.length < 2) {
-        console.log("En az 2 nokta gerekli!");
+        console.log("At least 2 points are required!");
         return;
     }
 
@@ -256,7 +351,7 @@ function runGraph() {
     runMode = runModeSelect.value;
 
     if (runMode === 'instant') {
-        // Anlık çözüm
+        // Instant solution
         if (selectedAlgorithm === 'kruskal') {
             mstEdges = kruskalMST();
         } else {
@@ -264,7 +359,7 @@ function runGraph() {
         }
         if (nextStepBtn) nextStepBtn.classList.add('hidden');
     } else if (runMode === 'step') {
-        // Adım adım çözüm
+        // Step-by-step solution
         if (selectedAlgorithm === 'kruskal') {
             algorithmSteps = prepareKruskalSteps();
         } else {
@@ -272,24 +367,18 @@ function runGraph() {
         }
         currentStep = 0;
         if (nextStepBtn) nextStepBtn.classList.remove('hidden');
-        nextStep(); // İlk adımı göster
-    } else if (runMode === 'compare') {
-        // Karşılaştırmalı çözüm
-        compareMode.kruskal.edges = kruskalMST();
-        compareMode.prim.edges = primMST();
-        mstEdges = [...compareMode.kruskal.edges]; // Başlangıçta Kruskal'ı göster
-        if (nextStepBtn) nextStepBtn.classList.add('hidden');
+        nextStep(); // Show first step
     }
 }
 
-// p5.js setup fonksiyonu
+// p5.js setup function
 function setup() {
     const container = document.getElementById('canvasContainer');
     if (!container) return;
 
-    // Container genişliğini al ve yüksekliği 4:3 oranında ayarla
+    // Get container width and set height to 4:3 ratio
     const w = container.offsetWidth;
-    const h = Math.floor(w * 0.75); // 4:3 oranı için
+    const h = Math.floor(w * 0.75); // 4:3 ratio
 
     canvas = createCanvas(w, h);
     canvas.parent('canvasContainer');
@@ -297,7 +386,7 @@ function setup() {
     setupEventListeners();
 }
 
-// Pencere boyutu değiştiğinde canvas'ı yeniden boyutlandır
+// Canvas resized
 function windowResized() {
     const container = document.getElementById('canvasContainer');
     if (!container || !canvas) return;
@@ -307,7 +396,7 @@ function windowResized() {
     
     resizeCanvas(w, h);
     
-    // Noktaların pozisyonlarını yeni boyuta göre ölçekle
+    // Recalculate points positions based on new dimensions
     const oldWidth = width;
     const oldHeight = height;
     
@@ -316,11 +405,11 @@ function windowResized() {
         node.y = (node.y / oldHeight) * h;
     }
     
-    // Kenarları güncelle
+    // Update edges
     updateEdges();
 }
 
-// Event listener'ları kur
+// Set up event listeners
 function setupEventListeners() {
     const addNodeBtn = document.getElementById('addNodeBtn');
     const moveNodeBtn = document.getElementById('moveNodeBtn');
@@ -355,30 +444,30 @@ function setupEventListeners() {
                 currentModeSpan.textContent = e.target.options[e.target.selectedIndex].text;
             }
             
-            // Butonların görünürlüğünü güncelle
+            // Update button visibility
             if (nextStepBtn) {
                 nextStepBtn.classList.toggle('hidden', runMode !== 'step');
             }
             
-            // Adım adım mod seçildiğinde çalıştır butonunun metnini güncelle
+            // Update run button text when step mode is selected
             if (runBtn) {
-                runBtn.textContent = runMode === 'step' ? 'Başlat' : 'Çalıştır';
+                runBtn.textContent = runMode === 'step' ? 'Start' : 'Run';
             }
             
-            resetGraph(); // Modu değiştirdiğimizde grafiği sıfırla
+            resetGraph(); // Reset graph when mode changes
         });
     }
 
     if (runBtn) {
         runBtn.addEventListener('click', () => {
-            console.log("Çalıştır butonuna basıldı");
+            console.log("Run button clicked");
             runGraph();
         });
     }
 
     if (nextStepBtn) {
         nextStepBtn.addEventListener('click', () => {
-            console.log("Sonraki adım butonuna basıldı");
+            console.log("Next step button clicked");
             nextStep();
         });
     }
@@ -388,27 +477,15 @@ function setupEventListeners() {
     if (clearBtn) clearBtn.addEventListener('click', clearGraph);
 }
 
-// p5.js draw fonksiyonu
+// p5.js draw function
 function draw() {
     background(255);
 
-    if (runMode === 'compare') {
-        // Karşılaştırmalı mod için canvas'ı ikiye böl
-        push();
-        stroke(200);
-        line(width/2, 0, width/2, height);
-        
-        // Sol taraf - Kruskal
-        drawGraph(compareMode.kruskal.edges, 0, width/2);
-        
-        // Sağ taraf - Prim
-        drawGraph(compareMode.prim.edges, width/2, width);
-        pop();
-    } else if (runMode === 'step') {
-        // Adım adım çözüm için mevcut durumu göster
+    if (runMode === 'step') {
+        // Show current state for step-by-step solution
         drawGraph(mstEdges);
         
-        // Mevcut adımı vurgula
+        // Highlight current step
         if (currentStep < algorithmSteps.length) {
             let currentEdge = algorithmSteps[currentStep].edge;
             let color = algorithmSteps[currentStep].type === 'consider' ? 
@@ -416,37 +493,31 @@ function draw() {
             currentEdge.draw(color);
         }
     } else {
-        // Normal mod
+        // Normal mode
         drawGraph(mstEdges);
     }
 
-    // Noktaları her zaman en üstte çiz
+    // Points always drawn on top
     for (let node of nodes) {
         node.draw();
     }
 }
 
 function drawGraph(mstEdges, startX = 0, endX = width) {
-    push();
-    translate(startX, 0);
-    let graphWidth = endX - startX;
-    let scale = graphWidth / width;
-    
-    // MST dışı kenarları çiz
+    // Draw non-MST edges
     for (let edge of edges) {
         if (!mstEdges.includes(edge)) {
             edge.draw(colors.edge.normal);
         }
     }
     
-    // MST kenarlarını çiz
+    // Draw MST edges
     for (let edge of mstEdges) {
         edge.draw(colors.edge.selected, true);
     }
-    pop();
 }
 
-// Mouse olayları
+// Mouse events
 function mousePressed() {
     if (mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height) {
         if (currentMode === 'add') {
@@ -467,9 +538,11 @@ function mouseReleased() {
     selectedNode = null;
 }
 
-// Yardımcı fonksiyonlar
+// Helper functions
 function addNode(x, y) {
-    const newNode = new Node(x, y);
+    const nodeTypeSelect = document.getElementById('nodeType');
+    const type = nodeTypeSelect ? nodeTypeSelect.value : 'distribution_box';
+    const newNode = new Node(x, y, type);
     nodes.push(newNode);
     updateNodeCount();
     updateEdges();
@@ -574,7 +647,7 @@ function nextStep() {
     }
     currentStep++;
 
-    // İlerleme durumunu güncelle
+    // Update progress
     const progressElement = document.getElementById('progress');
     if (progressElement) {
         progressElement.textContent = `${currentStep}/${algorithmSteps.length}`;

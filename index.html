@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Elektrik Şebekesi Optimizasyonu</title>
+    <title>Electrical Grid Optimization</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <script src="sketch.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
@@ -21,70 +21,76 @@
 </head>
 <body class="bg-gray-100">
     <div class="container mx-auto p-4 max-w-7xl">
-        <h1 class="text-3xl font-bold mb-4">Elektrik Şebekesi Optimizasyonu</h1>
+        <h1 class="text-3xl font-bold mb-4">Electrical Grid Optimization</h1>
         
-        <!-- Kontrol Paneli -->
+        <!-- Control Panel -->
         <div class="bg-white p-4 rounded-lg shadow-md mb-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Mod Seçimi -->
+                <!-- Mode Selection -->
                 <div class="space-y-2">
-                    <h2 class="text-lg font-semibold">Çizim Modu</h2>
+                    <h2 class="text-lg font-semibold">Drawing Mode</h2>
                     <div class="space-x-2">
-                        <button id="addNodeBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700">Nokta Ekle</button>
-                        <button id="moveNodeBtn" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-700">Nokta Taşı</button>
+                        <div class="flex items-center gap-2">
+                            <select id="nodeType" class="p-2 border rounded">
+                                <option value="transformer">Transformer</option>
+                                <option value="distribution_box">Distribution Box</option>
+                                <option value="house">House</option>
+                            </select>
+                            <button id="addNodeBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700">Add Node</button>
+                            <button id="moveNodeBtn" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-700">Move Node</button>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Algoritma Seçimi -->
+                <!-- Algorithm Selection -->
                 <div class="space-y-2">
-                    <h2 class="text-lg font-semibold">Algoritma</h2>
+                    <h2 class="text-lg font-semibold">Algorithm</h2>
                     <select id="algorithmSelect" class="w-full p-2 border rounded">
-                        <option value="kruskal">Kruskal Algoritması</option>
-                        <option value="prim">Prim Algoritması</option>
+                        <option value="kruskal">Kruskal's Algorithm</option>
+                        <option value="prim">Prim's Algorithm</option>
                     </select>
                 </div>
 
-                <!-- Çalışma Modu -->
+                <!-- Run Mode -->
                 <div class="space-y-2">
-                    <h2 class="text-lg font-semibold">Çalışma Modu</h2>
+                    <h2 class="text-lg font-semibold">Run Mode</h2>
                     <select id="runMode" class="w-full p-2 border rounded">
-                        <option value="instant">Anlık Çözüm</option>
-                        <option value="step">Adım Adım</option>
-                        <option value="compare">Karşılaştırmalı</option>
+                        <option value="instant">Instant Solution</option>
+                        <option value="step">Step by Step</option>
                     </select>
                 </div>
 
-                <!-- Kontrol Butonları -->
+                <!-- Control Buttons -->
                 <div class="space-y-2">
-                    <h2 class="text-lg font-semibold">Kontroller</h2>
+                    <h2 class="text-lg font-semibold">Controls</h2>
                     <div class="flex flex-wrap gap-2">
-                        <button id="runBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700">Çalıştır</button>
-                        <button id="nextStepBtn" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-700 hidden">Sonraki Adım</button>
-                        <button id="resetBtn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-700">Sıfırla</button>
-                        <button id="randomBtn" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-700">Rastgele Graf</button>
-                        <button id="clearBtn" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-700">Temizle</button>
+                        <button id="runBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700">Run</button>
+                        <button id="nextStepBtn" class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-700 hidden">Next Step</button>
+                        <button id="resetBtn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-700">Reset</button>
+                        <button id="randomBtn" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-700">Random Graph</button>
+                        <button id="clearBtn" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-700">Clear</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- İstatistikler -->
+        <!-- Statistics -->
         <div class="bg-white p-4 rounded-lg shadow-md mb-4">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                    <h3 class="font-semibold">Nokta Sayısı:</h3>
+                    <h3 class="font-semibold">Node Count:</h3>
                     <span id="nodeCount">0</span>
                 </div>
                 <div>
-                    <h3 class="font-semibold">Toplam Maliyet:</h3>
+                    <h3 class="font-semibold">Total Cost:</h3>
                     <span id="totalCost">0</span>
                 </div>
                 <div>
-                    <h3 class="font-semibold">Mevcut Mod:</h3>
-                    <span id="currentMode">Anlık Çözüm</span>
+                    <h3 class="font-semibold">Current Mode:</h3>
+                    <span id="currentMode">Instant Solution</span>
                 </div>
                 <div>
-                    <h3 class="font-semibold">İlerleme:</h3>
+                    <h3 class="font-semibold">Progress:</h3>
                     <span id="progress">0/0</span>
                 </div>
             </div>
