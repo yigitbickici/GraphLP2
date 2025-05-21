@@ -1,19 +1,16 @@
-// General variables
 let nodes = [];
 let edges = [];
 let mstEdges = [];
-let currentMode = 'add'; // 'add' or 'move'
+let currentMode = 'add';
 let selectedNode = null;
 let canvas;
-let runMode = 'instant'; // 'instant' or 'step'
+let runMode = 'instant';
 let currentStep = 0;
 let algorithmSteps = [];
 
-// Algorithm variables
-let animationSpeed = 500; // ms
+let animationSpeed = 500;
 let isAnimating = false;
 
-// Color palette
 const colors = {
     node: {
         fill: 'rgb(52, 152, 219)',
@@ -37,25 +34,22 @@ const colors = {
     ]
 };
 
-// Node class
 class Node {
     constructor(x, y, type = 'distribution_box') {
         this.x = constrain(x, 10, width - 10);
         this.y = constrain(y, 10, height - 10);
         this.id = nodes.length;
         this.type = type;
-        this.capacity = type === 'transformer' ? 1000 : type === 'distribution_box' ? 100 : 10; // kWh capacity
+        this.capacity = type === 'transformer' ? 1000 : type === 'distribution_box' ? 100 : 10;
         this.load = 0;
-        this.voltage = type === 'transformer' ? 1000 : type === 'distribution_box' ? 400 : 220; // voltage level
+        this.voltage = type === 'transformer' ? 1000 : type === 'distribution_box' ? 400 : 220;
     }
 
     draw(highlight = false) {
         push();
         
-        // Different visuals for different node types
         let size = 20;
         if (this.type === 'transformer') {
-            // Draw transformer (square)
             size = 30;
             fill('rgb(231, 76, 60)');
             stroke(highlight ? colors.edge.highlight : colors.node.stroke);
@@ -63,19 +57,16 @@ class Node {
             rectMode(CENTER);
             rect(this.x, this.y, size, size);
             
-            // Draw transformer symbol
             fill('white');
             textSize(16);
             textAlign(CENTER, CENTER);
             text('⚡', this.x, this.y);
         } else if (this.type === 'distribution_box') {
-            // Draw distribution box (hexagon)
             size = 25;
             fill('rgb(52, 152, 219)');
             stroke(highlight ? colors.edge.highlight : colors.node.stroke);
             strokeWeight(highlight ? 3 : 2);
             
-            // Draw hexagon
             beginShape();
             for (let i = 0; i < 6; i++) {
                 let angle = TWO_PI / 6 * i - TWO_PI / 4;
@@ -85,13 +76,11 @@ class Node {
             }
             endShape(CLOSE);
         } else {
-            // Draw house (triangle)
             size = 20;
             fill('rgb(46, 204, 113)');
             stroke(highlight ? colors.edge.highlight : colors.node.stroke);
             strokeWeight(highlight ? 3 : 2);
             
-            // Draw house shape
             triangle(
                 this.x, this.y - size/2,
                 this.x - size/2, this.y + size/2,
@@ -99,14 +88,12 @@ class Node {
             );
         }
         
-        // Draw ID
         fill('white');
         noStroke();
         textSize(10);
         textAlign(CENTER, CENTER);
         text(this.id, this.x, this.y + (this.type === 'house' ? 0 : 0));
         
-        // Show capacity/load for transformers and distribution boxes
         if (this.type !== 'house') {
             textSize(8);
             text(`${this.load}/${this.capacity}kW`, this.x, this.y + size/2 + 10);
@@ -122,39 +109,31 @@ class Node {
     }
 }
 
-// Edge class
 class Edge {
     constructor(node1, node2) {
         this.node1 = node1;
         this.node2 = node2;
         this.distance = dist(node1.x, node1.y, node2.x, node2.y);
-        this.cableType = 'copper'; // 'copper' or 'aluminum'
+        this.cableType = 'copper';
         this.cableCosts = {
-            'copper': 100, // TL/m
-            'aluminum': 60  // TL/m
+            'copper': 100,
+            'aluminum': 60
         };
         this.resistance = this.calculateResistance();
-        this.powerLoss = 0; // Will be calculated based on current flow
+        this.powerLoss = 0;
         this.weight = this.calculateTotalCost();
     }
 
     calculateResistance() {
-        // ρ (resistivity) * L (length) / A (cross-sectional area)
-        const resistivity = this.cableType === 'copper' ? 1.68e-8 : 2.82e-8; // ohm-meters
-        const area = 0.0001; // m² (assumed constant for simplicity)
+        const resistivity = this.cableType === 'copper' ? 1.68e-8 : 2.82e-8;
+        const area = 0.0001;
         return (resistivity * this.distance) / area;
     }
 
     calculateTotalCost() {
-        // Base cost based on cable type and distance
         const baseCost = this.distance * this.cableCosts[this.cableType];
-        
-        // Additional cost based on power loss
-        const powerLossCost = this.powerLoss * 50; // 50 TL per unit of power loss
-        
-        // Installation complexity cost (example: longer distances are exponentially more complex)
+        const powerLossCost = this.powerLoss * 50;
         const installationCost = Math.pow(this.distance / 100, 1.5) * 1000;
-        
         return baseCost + powerLossCost + installationCost;
     }
 
@@ -173,7 +152,6 @@ class Edge {
             textSize(10);
             text(`${Math.round(this.weight)} TL\n${Math.round(this.distance)}m`, midX, midY);
             
-            // Show power loss if significant
             if (this.powerLoss > 0) {
                 text(`Loss: ${this.powerLoss.toFixed(2)}W`, midX, midY + 15);
             }
@@ -182,13 +160,11 @@ class Edge {
     }
 
     updatePowerLoss(current) {
-        // P = I²R (Power loss calculation)
         this.powerLoss = current * current * this.resistance;
-        this.weight = this.calculateTotalCost(); // Recalculate total cost
+        this.weight = this.calculateTotalCost();
     }
 }
 
-// Union-Find data structure
 class UnionFind {
     constructor(size) {
         this.parent = Array.from({length: size}, (_, i) => i);
@@ -219,7 +195,6 @@ class UnionFind {
     }
 }
 
-// Kruskal Algorithm
 function kruskalMST() {
     console.log("Starting Kruskal's algorithm...");
     mstEdges = [];
@@ -243,7 +218,6 @@ function kruskalMST() {
     return mstEdges;
 }
 
-// Prim Algorithm
 function primMST() {
     console.log("Starting Prim's algorithm...");
     if (nodes.length === 0) return [];
@@ -284,7 +258,6 @@ function primMST() {
     return mstEdges;
 }
 
-// Priority Queue (for Prim algorithm)
 class PriorityQueue {
     constructor() {
         this.values = [];
@@ -308,7 +281,6 @@ class PriorityQueue {
     }
 }
 
-// Random graph generation
 function createRandomGraph() {
     clearGraph();
     const numNodes = 10;
@@ -321,7 +293,6 @@ function createRandomGraph() {
     }
 }
 
-// Update edges
 function updateEdges() {
     edges = [];
     for (let i = 0; i < nodes.length; i++) {
@@ -331,7 +302,6 @@ function updateEdges() {
     }
 }
 
-// Run graph
 function runGraph() {
     console.log("runGraph called");
     if (nodes.length < 2) {
@@ -351,7 +321,6 @@ function runGraph() {
     runMode = runModeSelect.value;
 
     if (runMode === 'instant') {
-        // Instant solution
         if (selectedAlgorithm === 'kruskal') {
             mstEdges = kruskalMST();
         } else {
@@ -359,7 +328,6 @@ function runGraph() {
         }
         if (nextStepBtn) nextStepBtn.classList.add('hidden');
     } else if (runMode === 'step') {
-        // Step-by-step solution
         if (selectedAlgorithm === 'kruskal') {
             algorithmSteps = prepareKruskalSteps();
         } else {
@@ -367,18 +335,16 @@ function runGraph() {
         }
         currentStep = 0;
         if (nextStepBtn) nextStepBtn.classList.remove('hidden');
-        nextStep(); // Show first step
+        nextStep();
     }
 }
 
-// p5.js setup function
 function setup() {
     const container = document.getElementById('canvasContainer');
     if (!container) return;
 
-    // Get container width and set height to 4:3 ratio
     const w = container.offsetWidth;
-    const h = Math.floor(w * 0.75); // 4:3 ratio
+    const h = Math.floor(w * 0.75);
 
     canvas = createCanvas(w, h);
     canvas.parent('canvasContainer');
@@ -386,7 +352,6 @@ function setup() {
     setupEventListeners();
 }
 
-// Canvas resized
 function windowResized() {
     const container = document.getElementById('canvasContainer');
     if (!container || !canvas) return;
@@ -396,7 +361,6 @@ function windowResized() {
     
     resizeCanvas(w, h);
     
-    // Recalculate points positions based on new dimensions
     const oldWidth = width;
     const oldHeight = height;
     
@@ -405,11 +369,9 @@ function windowResized() {
         node.y = (node.y / oldHeight) * h;
     }
     
-    // Update edges
     updateEdges();
 }
 
-// Set up event listeners
 function setupEventListeners() {
     const addNodeBtn = document.getElementById('addNodeBtn');
     const moveNodeBtn = document.getElementById('moveNodeBtn');
@@ -444,17 +406,15 @@ function setupEventListeners() {
                 currentModeSpan.textContent = e.target.options[e.target.selectedIndex].text;
             }
             
-            // Update button visibility
             if (nextStepBtn) {
                 nextStepBtn.classList.toggle('hidden', runMode !== 'step');
             }
             
-            // Update run button text when step mode is selected
             if (runBtn) {
                 runBtn.textContent = runMode === 'step' ? 'Start' : 'Run';
             }
             
-            resetGraph(); // Reset graph when mode changes
+            resetGraph();
         });
     }
 
@@ -477,15 +437,12 @@ function setupEventListeners() {
     if (clearBtn) clearBtn.addEventListener('click', clearGraph);
 }
 
-// p5.js draw function
 function draw() {
     background(255);
 
     if (runMode === 'step') {
-        // Show current state for step-by-step solution
         drawGraph(mstEdges);
         
-        // Highlight current step
         if (currentStep < algorithmSteps.length) {
             let currentEdge = algorithmSteps[currentStep].edge;
             let color = algorithmSteps[currentStep].type === 'consider' ? 
@@ -493,31 +450,26 @@ function draw() {
             currentEdge.draw(color);
         }
     } else {
-        // Normal mode
         drawGraph(mstEdges);
     }
 
-    // Points always drawn on top
     for (let node of nodes) {
         node.draw();
     }
 }
 
 function drawGraph(mstEdges, startX = 0, endX = width) {
-    // Draw non-MST edges
     for (let edge of edges) {
         if (!mstEdges.includes(edge)) {
             edge.draw(colors.edge.normal);
         }
     }
     
-    // Draw MST edges
     for (let edge of mstEdges) {
         edge.draw(colors.edge.selected, true);
     }
 }
 
-// Mouse events
 function mousePressed() {
     if (mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height) {
         if (currentMode === 'add') {
@@ -538,7 +490,6 @@ function mouseReleased() {
     selectedNode = null;
 }
 
-// Helper functions
 function addNode(x, y) {
     const nodeTypeSelect = document.getElementById('nodeType');
     const type = nodeTypeSelect ? nodeTypeSelect.value : 'distribution_box';
@@ -647,7 +598,6 @@ function nextStep() {
     }
     currentStep++;
 
-    // Update progress
     const progressElement = document.getElementById('progress');
     if (progressElement) {
         progressElement.textContent = `${currentStep}/${algorithmSteps.length}`;
